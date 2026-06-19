@@ -47,6 +47,20 @@
         <FolderOpen :size="18" />
         打开 Markdown
       </button>
+
+      <div v-if="recentFiles.length > 0" class="recent-files-list">
+        <div class="recent-files-title">最近打开</div>
+        <button
+          v-for="file in recentFiles"
+          :key="file.path"
+          class="recent-file-item"
+          @click="loadFile(file.path)"
+        >
+          <span class="recent-file-name">{{ file.name }}</span>
+          <span class="recent-file-path" :title="file.path">{{ file.path }}</span>
+        </button>
+      </div>
+
       <div class="hint">
         <span><kbd>Ctrl</kbd> + <kbd>O</kbd> 打开</span>
         <span><kbd>F11</kbd> 全屏</span>
@@ -54,16 +68,37 @@
       </div>
     </section>
 
-    <section v-else class="reader-wrap" :aria-busy="isLoading">
-      <article ref="articleRef" class="markdown-body" v-html="html"></article>
+    <div v-else class="app-layout">
+      <aside v-if="siblingFiles.length > 1" class="sidebar">
+        <div class="sidebar-header">
+          <span>同目录文件</span>
+        </div>
+        <div class="sidebar-list">
+          <button
+            v-for="(file, index) in siblingFiles"
+            :key="file"
+            class="sidebar-item"
+            :class="{ 'is-active': file === currentPath }"
+            @click="loadFile(file)"
+          >
+            <span class="sidebar-item-name">{{ file.split(/[\\/]/).pop() }}</span>
+          </button>
+        </div>
+        <div class="sidebar-footer">
+          共 {{ siblingFiles.length }} 个文件
+        </div>
+      </aside>
 
-      <div v-if="errorMessage" class="inline-error" role="alert">
-        <AlertCircle :size="17" />
-        <span>{{ errorMessage }}</span>
-        <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''">
-          <X :size="15" />
-        </button>
-      </div>
+      <section class="reader-wrap" :aria-busy="isLoading" @scroll="handleScroll">
+        <article ref="articleRef" class="markdown-body" v-html="html"></article>
+
+        <div v-if="errorMessage" class="inline-error" role="alert">
+          <AlertCircle :size="17" />
+          <span>{{ errorMessage }}</span>
+          <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''">
+            <X :size="15" />
+          </button>
+        </div>
 
       <nav class="floating-bar" aria-label="阅读工具栏">
         <button
@@ -97,11 +132,31 @@
         <button type="button" aria-label="切换沉浸窗口" title="无边框沉浸窗口" @click="toggleImmersive">
           <PanelsTopLeft :size="18" />
         </button>
+        <button type="button" aria-label="导出 PDF" title="导出 PDF" @click="exportPdf">
+          <Printer :size="18" />
+        </button>
         <button type="button" aria-label="切换全屏" title="全屏（F11）" @click="toggleFullscreen">
           <Maximize2 :size="18" />
         </button>
       </nav>
     </section>
+
+    <aside v-if="toc.length > 0" class="toc-sidebar">
+      <div class="toc-header">大纲</div>
+      <div class="toc-list">
+        <a
+          v-for="item in toc"
+          :key="item.id"
+          :href="`#${item.id}`"
+          class="toc-item"
+          :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
+          @click.prevent="scrollToHeading(item.id)"
+        >
+          {{ item.text }}
+        </a>
+      </div>
+    </aside>
+    </div>
 
     <div
       v-if="contextMenu.visible"
@@ -142,6 +197,10 @@
         <PanelsTopLeft :size="16" />
         <span>沉浸窗口</span>
         <Check v-if="isImmersive" :size="15" />
+      </button>
+      <button type="button" role="menuitem" @click="runMenuAction(exportPdf)">
+        <Printer :size="16" />
+        <span>导出 PDF</span>
       </button>
       <button type="button" role="menuitem" @click="runMenuAction(toggleFullscreen)">
         <Maximize2 :size="16" />
@@ -187,6 +246,7 @@ import {
   Moon,
   Palette,
   PanelsTopLeft,
+  Printer,
   Square,
   Sun,
   X
@@ -197,6 +257,12 @@ interface MarkdownDocument {
   path: string
   content: string
   siblings: string[]
+}
+
+interface TocItem {
+  id: string
+  text: string
+  level: number
 }
 
 type Theme = 'auto' | 'light' | 'dark'
@@ -218,6 +284,15 @@ const theme = ref<Theme>((localStorage.getItem('markglass-theme') as Theme) || '
 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
 const systemIsDark = ref(systemTheme.matches)
 const contextMenu = reactive({ visible: false, x: 0, y: 0 })
+
+const toc = ref<TocItem[]>([])
+const activeTocId = ref('')
+const recentFiles = ref<{ name: string; path: string }[]>([])
+
+try {
+  const savedRecent = localStorage.getItem('markglass-recent-files')
+  if (savedRecent) recentFiles.value = JSON.parse(savedRecent)
+} catch {}
 
 const demoMarkdown = `# 欢迎使用 MarkGlass
 
@@ -421,6 +496,82 @@ async function renderDocument(content: string) {
   html.value = md.render(content)
   await nextTick()
   await Promise.all([renderCodeBlocks(sequence), renderMermaid(sequence)])
+  if (sequence === renderSequence) {
+    extractToc()
+    restoreScrollProgress()
+  }
+}
+
+let tocObserver: IntersectionObserver | null = null
+
+function extractToc() {
+  const article = articleRef.value
+  if (!article) return
+  
+  const headings = Array.from(article.querySelectorAll('h1, h2, h3, h4'))
+  toc.value = headings.map(h => {
+    if (!h.id) h.id = 'heading-' + Math.random().toString(36).substr(2, 9)
+    return {
+      id: h.id,
+      text: h.textContent || '',
+      level: parseInt(h.tagName[1], 10)
+    }
+  })
+  
+  if (tocObserver) tocObserver.disconnect()
+  
+  tocObserver = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (entry.isIntersecting) {
+        activeTocId.value = entry.target.id
+        break
+      }
+    }
+  }, { rootMargin: '-10% 0px -80% 0px' })
+  
+  headings.forEach(h => tocObserver!.observe(h))
+}
+
+function scrollToHeading(id: string) {
+  const el = document.getElementById(id)
+  const wrap = articleRef.value?.closest('.reader-wrap')
+  if (el && wrap) {
+    const top = el.offsetTop - 60
+    wrap.scrollTo({ top, behavior: 'smooth' })
+  }
+}
+
+function saveScrollProgress() {
+  if (!currentPath.value) return
+  const wrap = articleRef.value?.closest('.reader-wrap')
+  if (wrap) {
+    localStorage.setItem(`markglass-scroll-${currentPath.value}`, String(wrap.scrollTop))
+  }
+}
+
+let scrollTimeout: number | undefined
+function handleScroll() {
+  window.clearTimeout(scrollTimeout)
+  scrollTimeout = window.setTimeout(saveScrollProgress, 300)
+}
+
+function restoreScrollProgress() {
+  if (!currentPath.value) return
+  const saved = localStorage.getItem(`markglass-scroll-${currentPath.value}`)
+  const wrap = articleRef.value?.closest('.reader-wrap')
+  if (wrap && saved) {
+    wrap.scrollTo({ top: Number(saved), behavior: 'instant' })
+  } else if (wrap) {
+    wrap.scrollTo({ top: 0, behavior: 'instant' })
+  }
+}
+
+function addToRecent(path: string, name: string) {
+  const index = recentFiles.value.findIndex(f => f.path === path)
+  if (index !== -1) recentFiles.value.splice(index, 1)
+  recentFiles.value.unshift({ name, path })
+  if (recentFiles.value.length > 10) recentFiles.value.pop()
+  localStorage.setItem('markglass-recent-files', JSON.stringify(recentFiles.value))
 }
 
 async function loadFile(path: string) {
@@ -439,8 +590,8 @@ async function loadFile(path: string) {
     currentPath.value = document.path
     currentSource.value = document.content
     siblingFiles.value = document.siblings
+    addToRecent(document.path, document.path.split(/[\\/]/).pop() || '')
     await renderDocument(document.content)
-    window.scrollTo({ top: 0, behavior: 'instant' })
     window.document.title = `${currentFileName.value} — MarkGlass`
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -468,6 +619,10 @@ async function openRelative(offset: number) {
   if (currentSiblingIndex.value < 0) return
   const nextPath = siblingFiles.value[currentSiblingIndex.value + offset]
   if (nextPath) await loadFile(nextPath)
+}
+
+function exportPdf() {
+  window.print()
 }
 
 function toggleTheme() {
