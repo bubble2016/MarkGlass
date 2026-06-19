@@ -546,10 +546,10 @@ async function renderDocument(content: string) {
   html.value = md.render(content)
   await nextTick()
   extractToc()
-  restoreScrollProgress()
   await Promise.all([renderCodeBlocks(sequence), renderMermaid(sequence)])
   if (sequence === renderSequence) {
     extractToc()
+    restoreScrollProgress()
   }
 }
 
