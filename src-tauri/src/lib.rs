@@ -92,6 +92,13 @@ fn open_markdown(path: String) -> Result<MarkdownDocument, String> {
 
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(target_os = "windows")]
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window_vibrancy::apply_acrylic(&window, Some((18, 34, 48, 126)));
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_single_instance::init(|app, arguments, cwd| {
             let working_directory = PathBuf::from(cwd);
             if let Some(path) = find_markdown_argument(&arguments, &working_directory) {

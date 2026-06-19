@@ -1,34 +1,27 @@
 <template>
   <main
     class="app-shell"
-    :class="[themeClass, { 'is-dragging': isDragging, 'is-immersive': isImmersive }]"
+    :class="[
+      themeClass,
+      {
+        'is-dragging': isDragging,
+        'is-closing': isClosing,
+        'sidebar-collapsed': !sidebarVisible,
+        'is-serif': serifMode,
+        'web-preview': !isTauri
+      }
+    ]"
     @click="closeContextMenu"
     @contextmenu.prevent="openContextMenu"
   >
-    <header v-if="isImmersive" class="titlebar" data-tauri-drag-region>
-      <div class="titlebar-brand" data-tauri-drag-region>
-        <img :src="markGlassIcon" alt="" />
-        <span data-tauri-drag-region>{{ currentFileName || 'MarkGlass' }}</span>
-      </div>
-      <div class="window-actions">
-        <button type="button" aria-label="最小化窗口" title="最小化" @click.stop="minimizeWindow">
-          <Minus :size="16" />
-        </button>
-        <button type="button" aria-label="最大化或还原窗口" title="最大化或还原" @click.stop="toggleMaximize">
-          <Square :size="14" />
-        </button>
-        <button class="close-button" type="button" aria-label="关闭窗口" title="关闭" @click.stop="closeWindow">
-          <X :size="17" />
-        </button>
-      </div>
-    </header>
+    <div class="desktop-tint" aria-hidden="true"></div>
 
-    <section v-if="isLoading && !html" class="empty-state status-state" aria-live="polite">
+    <section v-if="isLoading && !html" class="empty-stage status-state" aria-live="polite">
       <LoaderCircle class="spin" :size="34" />
       <p>正在打开 Markdown…</p>
     </section>
 
-    <section v-else-if="errorMessage && !html" class="empty-state status-state" role="alert">
+    <section v-else-if="errorMessage && !html" class="empty-stage status-state" role="alert">
       <AlertCircle :size="38" />
       <h1>无法打开文件</h1>
       <p>{{ errorMessage }}</p>
@@ -38,124 +31,195 @@
       </button>
     </section>
 
-    <section v-else-if="!html" class="empty-state">
-      <img class="app-logo" :src="markGlassIcon" alt="MarkGlass 图标" />
-      <p class="eyebrow">MARKDOWN VIEWER</p>
-      <h1>MarkGlass</h1>
-      <p class="empty-description">双击 Markdown 文件，或把文档拖到这里，即刻开始阅读。</p>
-      <button class="primary-button" type="button" @click="openFile">
-        <FolderOpen :size="18" />
-        打开 Markdown
-      </button>
-
-      <div v-if="recentFiles.length > 0" class="recent-files-list">
-        <div class="recent-files-title">最近打开</div>
-        <button
-          v-for="file in recentFiles"
-          :key="file.path"
-          class="recent-file-item"
-          @click="loadFile(file.path)"
-        >
-          <span class="recent-file-name">{{ file.name }}</span>
-          <span class="recent-file-path" :title="file.path">{{ file.path }}</span>
+    <section v-else-if="!html" class="empty-stage">
+      <div class="welcome-card">
+        <picture class="brand-lockup">
+          <source media="(prefers-color-scheme: dark)" :srcset="markGlassWordmarkDark" />
+          <img
+            :src="effectiveDark ? markGlassWordmarkDark : markGlassWordmarkLight"
+            alt="MarkGlass"
+          />
+        </picture>
+        <p class="eyebrow">IMMERSIVE MARKDOWN READER</p>
+        <p>把 Markdown 像照片一样铺展在桌面上。</p>
+        <button class="primary-button" type="button" @click="openFile">
+          <FolderOpen :size="18" />
+          打开 Markdown
         </button>
-      </div>
-
-      <div class="hint">
-        <span><kbd>Ctrl</kbd> + <kbd>O</kbd> 打开</span>
-        <span><kbd>F11</kbd> 全屏</span>
-        <span><kbd>←</kbd> <kbd>→</kbd> 连续阅读</span>
+        <div v-if="recentFiles.length" class="recent-files-list">
+          <button v-for="file in recentFiles" :key="file.path" type="button" @click="loadFile(file.path)">
+            <FileText :size="17" />
+            <span>{{ file.name }}</span>
+          </button>
+        </div>
+        <div class="hint">
+          <span><kbd>Ctrl</kbd> + <kbd>O</kbd> 打开</span>
+          <span><kbd>←</kbd> <kbd>→</kbd> 连续阅读</span>
+        </div>
       </div>
     </section>
 
-    <div v-else class="app-layout">
-      <aside v-if="siblingFiles.length > 1" class="sidebar">
-        <div class="sidebar-header">
-          <span>同目录文件</span>
+    <div v-else class="immersive-stage">
+      <aside v-if="siblingFiles.length > 1" class="file-rail" aria-label="同目录文件">
+        <div class="rail-header">
+          <strong>同目录文件</strong>
+          <button type="button" aria-label="收起文件列表" title="收起文件列表" @click.stop="sidebarVisible = false">
+            <ChevronLeft :size="19" />
+          </button>
         </div>
-        <div class="sidebar-list">
+
+        <div class="rail-list">
           <button
             v-for="(file, index) in siblingFiles"
             :key="file"
-            class="sidebar-item"
-            :class="{ 'is-active': file === currentPath }"
-            @click="loadFile(file)"
+            class="file-card"
+            :class="{ 'is-active': samePath(file, currentPath) }"
+            type="button"
+            @click.stop="loadFile(file)"
           >
-            <span class="sidebar-item-name">{{ file.split(/[\\/]/).pop() }}</span>
+            <img :src="documentThumbnail" alt="" />
+            <span class="file-copy">
+              <strong>{{ fileName(file) }}</strong>
+              <small>{{ samePath(file, currentPath) ? '正在阅读' : index + 1 }}</small>
+            </span>
           </button>
         </div>
-        <div class="sidebar-footer">
-          共 {{ siblingFiles.length }} 个文件
+
+        <div class="rail-footer">
+          <span>共 {{ siblingFiles.length }} 个文件</span>
+          <Check :size="16" />
         </div>
       </aside>
 
-      <section class="reader-wrap" :aria-busy="isLoading" @scroll="handleScroll">
+      <button
+        v-if="!sidebarVisible && siblingFiles.length > 1"
+        class="rail-reveal glass-button"
+        type="button"
+        aria-label="显示同目录文件"
+        title="显示同目录文件"
+        @click.stop="sidebarVisible = true"
+      >
+        <PanelLeftOpen :size="20" />
+      </button>
+
+      <div class="document-status glass-pill" data-tauri-drag-region>
+        <strong data-tauri-drag-region>{{ currentFileName }}</strong>
+        <span data-tauri-drag-region></span>
+        <span data-tauri-drag-region>{{ displayIndex }} / {{ siblingFiles.length || 1 }}</span>
+      </div>
+
+      <div class="window-controls">
+        <button type="button" aria-label="最小化窗口" title="最小化" @click.stop="minimizeWindow">
+          <Minus :size="16" />
+        </button>
+        <button type="button" aria-label="关闭窗口" title="关闭" @click.stop="closeWindow">
+          <X :size="17" />
+        </button>
+      </div>
+
+      <section
+        ref="readerWrapRef"
+        class="reader-card"
+        :aria-busy="isLoading"
+        :style="{ '--reader-zoom': `${zoom / 100}` }"
+        @scroll="handleScroll"
+      >
         <article ref="articleRef" class="markdown-body" v-html="html"></article>
+
+        <div v-if="tocVisible && toc.length" class="toc-popover" @click.stop>
+          <div class="toc-popover-header">
+            <strong>文档目录</strong>
+            <button type="button" aria-label="关闭目录" @click="tocVisible = false"><X :size="16" /></button>
+          </div>
+          <nav>
+            <button
+              v-for="item in toc"
+              :key="item.id"
+              type="button"
+              :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
+              @click="scrollToHeading(item.id)"
+            >
+              {{ item.text }}
+            </button>
+          </nav>
+        </div>
 
         <div v-if="errorMessage" class="inline-error" role="alert">
           <AlertCircle :size="17" />
           <span>{{ errorMessage }}</span>
-          <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''">
-            <X :size="15" />
-          </button>
+          <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''"><X :size="15" /></button>
         </div>
+      </section>
 
-      <nav class="floating-bar" aria-label="阅读工具栏">
+      <button
+        class="page-nav page-nav-prev"
+        type="button"
+        aria-label="上一篇"
+        title="上一篇（←）"
+        :disabled="!canOpenPrevious"
+        @click.stop="openRelative(-1)"
+      >
+        <ChevronLeft :size="30" />
+      </button>
+      <button
+        class="page-nav page-nav-next"
+        type="button"
+        aria-label="下一篇"
+        title="下一篇（→）"
+        :disabled="!canOpenNext"
+        @click.stop="openRelative(1)"
+      >
+        <ChevronRight :size="30" />
+      </button>
+
+      <nav class="floating-toolbar" aria-label="阅读工具栏">
         <button
           type="button"
-          aria-label="上一篇"
-          title="上一篇（←）"
-          :disabled="!canOpenPrevious"
-          @click="openRelative(-1)"
+          :class="{ 'is-active': tocVisible }"
+          aria-label="文档目录"
+          title="文档目录"
+          @click.stop="tocVisible = !tocVisible"
         >
-          <ChevronLeft :size="18" />
+          <ListTree :size="20" />
         </button>
-        <span class="file-name" :title="currentPath">{{ currentFileName }}</span>
         <button
           type="button"
-          aria-label="下一篇"
-          title="下一篇（→）"
-          :disabled="!canOpenNext"
-          @click="openRelative(1)"
+          :class="{ 'is-active': sidebarVisible }"
+          aria-label="同目录文件"
+          title="同目录文件"
+          @click.stop="sidebarVisible = !sidebarVisible"
         >
-          <ChevronRight :size="18" />
+          <LayoutGrid :size="19" />
         </button>
-        <span class="toolbar-divider" aria-hidden="true"></span>
-        <button type="button" aria-label="打开文件" title="打开文件（Ctrl+O）" @click="openFile">
-          <FolderOpen :size="18" />
+        <span class="toolbar-separator"></span>
+        <button type="button" aria-label="缩小" title="缩小" :disabled="zoom <= 70" @click.stop="setZoom(zoom - 10)">
+          <ZoomOut :size="19" />
         </button>
-        <button type="button" :aria-label="`当前主题：${themeLabel}`" :title="`主题：${themeLabel}`" @click="toggleTheme">
-          <MonitorCog v-if="theme === 'auto'" :size="18" />
-          <Sun v-else-if="theme === 'light'" :size="18" />
-          <Moon v-else :size="18" />
+        <button class="zoom-value" type="button" title="恢复 100%" @click.stop="setZoom(100)">{{ zoom }}%</button>
+        <button type="button" aria-label="放大" title="放大" :disabled="zoom >= 160" @click.stop="setZoom(zoom + 10)">
+          <ZoomIn :size="19" />
         </button>
-        <button type="button" aria-label="切换沉浸窗口" title="无边框沉浸窗口" @click="toggleImmersive">
-          <PanelsTopLeft :size="18" />
+        <span class="toolbar-separator"></span>
+        <button type="button" :aria-label="`当前主题：${themeLabel}`" :title="`主题：${themeLabel}`" @click.stop="toggleTheme">
+          <Sun v-if="!effectiveDark" :size="20" />
+          <Moon v-else :size="19" />
         </button>
-        <button type="button" aria-label="导出 PDF" title="导出 PDF" @click="exportPdf">
-          <Printer :size="18" />
+        <button
+          type="button"
+          :class="{ 'is-active': serifMode }"
+          aria-label="切换阅读字体"
+          title="切换阅读字体"
+          @click.stop="serifMode = !serifMode"
+        >
+          <Type :size="19" />
         </button>
-        <button type="button" aria-label="切换全屏" title="全屏（F11）" @click="toggleFullscreen">
-          <Maximize2 :size="18" />
+        <button type="button" aria-label="打开文件" title="打开文件（Ctrl+O）" @click.stop="openFile">
+          <FolderOpen :size="19" />
+        </button>
+        <button type="button" aria-label="切换全屏" title="全屏（F11）" @click.stop="toggleFullscreen">
+          <Maximize2 :size="19" />
         </button>
       </nav>
-    </section>
-
-    <aside v-if="toc.length > 0" class="toc-sidebar">
-      <div class="toc-header">大纲</div>
-      <div class="toc-list">
-        <a
-          v-for="item in toc"
-          :key="item.id"
-          :href="`#${item.id}`"
-          class="toc-item"
-          :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
-          @click.prevent="scrollToHeading(item.id)"
-        >
-          {{ item.text }}
-        </a>
-      </div>
-    </aside>
     </div>
 
     <div
@@ -167,45 +231,27 @@
       @click.stop
     >
       <button type="button" role="menuitem" @click="runMenuAction(copySelection)">
-        <Copy :size="16" />
-        <span>复制所选内容</span>
-        <kbd>Ctrl+C</kbd>
+        <Copy :size="16" /><span>复制所选内容</span><kbd>Ctrl+C</kbd>
       </button>
       <button type="button" role="menuitem" @click="runMenuAction(openFile)">
-        <FolderOpen :size="16" />
-        <span>打开文件</span>
-        <kbd>Ctrl+O</kbd>
+        <FolderOpen :size="16" /><span>打开文件</span><kbd>Ctrl+O</kbd>
       </button>
-      <div class="menu-separator" role="separator"></div>
+      <div class="menu-separator"></div>
       <button type="button" role="menuitem" :disabled="!canOpenPrevious" @click="runMenuAction(() => openRelative(-1))">
-        <ChevronLeft :size="16" />
-        <span>上一篇</span>
-        <kbd>←</kbd>
+        <ChevronLeft :size="16" /><span>上一篇</span><kbd>←</kbd>
       </button>
       <button type="button" role="menuitem" :disabled="!canOpenNext" @click="runMenuAction(() => openRelative(1))">
-        <ChevronRight :size="16" />
-        <span>下一篇</span>
-        <kbd>→</kbd>
+        <ChevronRight :size="16" /><span>下一篇</span><kbd>→</kbd>
       </button>
-      <div class="menu-separator" role="separator"></div>
+      <div class="menu-separator"></div>
       <button type="button" role="menuitem" @click="runMenuAction(toggleTheme)">
-        <Palette :size="16" />
-        <span>切换主题</span>
-        <small>{{ themeLabel }}</small>
-      </button>
-      <button type="button" role="menuitem" @click="runMenuAction(toggleImmersive)">
-        <PanelsTopLeft :size="16" />
-        <span>沉浸窗口</span>
-        <Check v-if="isImmersive" :size="15" />
+        <Palette :size="16" /><span>切换主题</span><small>{{ themeLabel }}</small>
       </button>
       <button type="button" role="menuitem" @click="runMenuAction(exportPdf)">
-        <Printer :size="16" />
-        <span>导出 PDF</span>
+        <Printer :size="16" /><span>导出 PDF</span>
       </button>
       <button type="button" role="menuitem" @click="runMenuAction(toggleFullscreen)">
-        <Maximize2 :size="16" />
-        <span>全屏</span>
-        <kbd>F11</kbd>
+        <Maximize2 :size="16" /><span>全屏</span><kbd>F11</kbd>
       </button>
     </div>
 
@@ -238,20 +284,27 @@ import {
   ChevronRight,
   Copy,
   FileDown,
+  FileText,
   FolderOpen,
+  LayoutGrid,
+  ListTree,
   LoaderCircle,
   Maximize2,
   Minus,
-  MonitorCog,
   Moon,
   Palette,
-  PanelsTopLeft,
+  PanelLeftOpen,
   Printer,
-  Square,
   Sun,
-  X
+  Type,
+  X,
+  ZoomIn,
+  ZoomOut
 } from '@lucide/vue'
-import markGlassIcon from './assets/markglass-icon.png'
+import markGlassWordmarkLight from './assets/markglass-wordmark-light.png'
+import markGlassWordmarkDark from './assets/markglass-wordmark-dark.png'
+import documentThumbnail from './assets/document-thumbnail.png'
+import demoLandscape from './assets/demo-landscape.png'
 
 interface MarkdownDocument {
   path: string
@@ -275,115 +328,115 @@ const currentPath = ref('')
 const siblingFiles = ref<string[]>([])
 const isDragging = ref(false)
 const isLoading = ref(false)
-const isImmersive = ref(isTauri && localStorage.getItem('markglass-immersive') === 'true')
+const isClosing = ref(false)
 const errorMessage = ref('')
 const toastMessage = ref('')
 const articleRef = ref<HTMLElement | null>(null)
+const readerWrapRef = ref<HTMLElement | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
+const sidebarVisible = ref(localStorage.getItem('markglass-sidebar') !== 'false')
+const tocVisible = ref(false)
+const serifMode = ref(localStorage.getItem('markglass-serif') === 'true')
+const zoom = ref(Number(localStorage.getItem('markglass-zoom')) || 100)
 const theme = ref<Theme>((localStorage.getItem('markglass-theme') as Theme) || 'auto')
 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
 const systemIsDark = ref(systemTheme.matches)
 const contextMenu = reactive({ visible: false, x: 0, y: 0 })
-
 const toc = ref<TocItem[]>([])
 const activeTocId = ref('')
 const recentFiles = ref<{ name: string; path: string }[]>([])
 
 try {
-  const savedRecent = localStorage.getItem('markglass-recent-files')
-  if (savedRecent) recentFiles.value = JSON.parse(savedRecent)
+  recentFiles.value = JSON.parse(localStorage.getItem('markglass-recent-files') || '[]')
 } catch {}
 
-const demoMarkdown = `# 欢迎使用 MarkGlass
+const demoNames = [
+  '01. README.md',
+  '02. 快速开始.md',
+  '03. 功能特性.md',
+  '04. 使用指南.md',
+  '05. 主题定制.md',
+  '06. 快捷键.md',
+  '07. 常见问题.md',
+  '08. 更新日志.md'
+]
 
-MarkGlass 是一个专注于阅读体验的 Windows Markdown 阅读器。
+const demoMarkdown = `# MarkGlass
 
-> 拖入文档、双击文件，或者使用 **Ctrl + O** 即可开始阅读。
+> 像看图片一样阅读 Markdown
 
-## 代码高亮
+<img class="demo-hero" src="${demoLandscape}" alt="山湖风景">
 
-\`\`\`typescript
-interface Reader {
-  name: string
-  immersive: boolean
-}
+MarkGlass 是一款专为 Markdown 阅读设计的 Windows 桌面应用，
 
-const markGlass: Reader = {
-  name: 'MarkGlass',
-  immersive: true
-}
-\`\`\`
+追求极简、美观、流畅的阅读体验。
 
-## Mermaid 图表
+## ✨ 核心特性
+
+- [x] 秒开极速
+- [x] 沉浸阅读
+- [x] 完美渲染
+- [x] 连续阅读
+- [x] 主题切换
+- [x] 代码高亮
+
+## 📊 表格示例
+
+| 特性 | 说明 | 支持 |
+| --- | --- | :---: |
+| 代码高亮 | 支持多种语言代码高亮 | ✓ |
+| Mermaid | 支持流程图、时序图等 | ✓ |
+| 任务列表 | 支持任务列表和复选框 | ✓ |
+| 表格渲染 | 支持复杂表格样式 | ✓ |
+
+## 📈 Mermaid 示例
 
 \`\`\`mermaid
-flowchart LR
-  A[打开 Markdown] --> B[解析内容]
-  B --> C[Shiki 高亮]
-  B --> D[Mermaid 图表]
-  C --> E[沉浸阅读]
-  D --> E
+flowchart TD
+  A[阅读 Markdown] --> B[渲染内容]
+  B --> C{是否有链接?}
+  C -- 否 --> D[显示内容]
+  C -- 是 --> E[显示链接目标]
 \`\`\`
-
-## 支持情况
-
-| 能力 | 状态 |
-| --- | --- |
-| 亮色 / 暗色 | 已支持 |
-| 同目录连续阅读 | 已支持 |
-| 无边框沉浸窗口 | 已支持 |
 `
 
 let toastTimer: number | undefined
+let scrollTimeout: number | undefined
 let renderSequence = 0
+let tocObserver: IntersectionObserver | null = null
 let unlistenOpenFile: UnlistenFn | undefined
 let unlistenDragDrop: UnlistenFn | undefined
 
 const themeClass = computed(() => `theme-${theme.value}`)
 const themeLabel = computed(() => (theme.value === 'auto' ? '跟随系统' : theme.value === 'light' ? '亮色' : '暗色'))
-const currentFileName = computed(() => currentPath.value.split(/[\\/]/).pop() || '')
+const currentFileName = computed(() => fileName(currentPath.value))
 const currentSiblingIndex = computed(() =>
-  siblingFiles.value.findIndex((path) => path.toLowerCase() === currentPath.value.toLowerCase())
+  siblingFiles.value.findIndex((path) => samePath(path, currentPath.value))
 )
+const displayIndex = computed(() => Math.max(1, currentSiblingIndex.value + 1))
 const canOpenPrevious = computed(() => currentSiblingIndex.value > 0)
-const canOpenNext = computed(
-  () => currentSiblingIndex.value >= 0 && currentSiblingIndex.value < siblingFiles.value.length - 1
+const canOpenNext = computed(() =>
+  currentSiblingIndex.value >= 0 && currentSiblingIndex.value < siblingFiles.value.length - 1
 )
 const effectiveDark = computed(() => theme.value === 'dark' || (theme.value === 'auto' && systemIsDark.value))
 
-const md = new MarkdownIt({
-  html: true,
-  linkify: true,
-  typographer: true
-})
-  .use(anchor, { permalink: anchor.permalink.linkInsideHeader({ symbol: '#' }) })
+const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
+  .use(anchor)
   .use(footnote)
   .use(taskLists, { enabled: true, label: true })
 
 const highlighterPromise = createHighlighter({
   themes: ['github-light', 'github-dark'],
-  langs: [
-    'bash',
-    'c',
-    'cpp',
-    'css',
-    'diff',
-    'html',
-    'java',
-    'javascript',
-    'json',
-    'jsx',
-    'markdown',
-    'powershell',
-    'python',
-    'rust',
-    'sql',
-    'typescript',
-    'tsx',
-    'vue',
-    'yaml'
-  ]
+  langs: ['bash', 'c', 'cpp', 'css', 'diff', 'html', 'java', 'javascript', 'json', 'jsx', 'markdown', 'powershell', 'python', 'rust', 'sql', 'typescript', 'tsx', 'vue', 'yaml']
 })
+
+function fileName(path: string) {
+  return path.split(/[\\/]/).pop() || 'MarkGlass'
+}
+
+function samePath(a: string, b: string) {
+  return a.toLowerCase() === b.toLowerCase()
+}
 
 function normalizeFilePath(path: string) {
   let value = path.trim().replace(/^["']|["']$/g, '')
@@ -397,48 +450,30 @@ function normalizeFilePath(path: string) {
   return value.replace(/^\/([A-Za-z]:)/, '$1')
 }
 
-function extname(path: string) {
-  return path.split('.').pop()?.toLowerCase() || ''
-}
-
 function isMarkdown(path: string) {
-  return ['md', 'mdx', 'markdown'].includes(extname(path))
+  return ['md', 'mdx', 'markdown'].includes(path.split('.').pop()?.toLowerCase() || '')
 }
 
 function normalizeLanguage(language: string) {
   const aliases: Record<string, string> = {
-    js: 'javascript',
-    ts: 'typescript',
-    shell: 'bash',
-    sh: 'bash',
-    ps1: 'powershell',
-    py: 'python',
-    rs: 'rust',
-    yml: 'yaml',
-    md: 'markdown',
-    text: 'plaintext',
-    txt: 'plaintext'
+    js: 'javascript', ts: 'typescript', shell: 'bash', sh: 'bash', ps1: 'powershell',
+    py: 'python', rs: 'rust', yml: 'yaml', md: 'markdown', text: 'plaintext', txt: 'plaintext'
   }
   return aliases[language] || language || 'plaintext'
 }
 
 async function renderCodeBlocks(sequence: number) {
-  const article = articleRef.value
-  if (!article) return
-
+  if (!articleRef.value) return
   const highlighter = await highlighterPromise
   if (sequence !== renderSequence) return
-
-  const blocks = Array.from(article.querySelectorAll('pre > code')).filter(
+  const blocks = Array.from(articleRef.value.querySelectorAll('pre > code')).filter(
     (code) => !code.classList.contains('language-mermaid')
   )
-
   for (const code of blocks) {
     const source = code.textContent || ''
     const className = Array.from(code.classList).find((name) => name.startsWith('language-'))
     const language = normalizeLanguage(className?.replace('language-', '') || '')
     let highlighted: string
-
     try {
       highlighted = highlighter.codeToHtml(source, {
         lang: language,
@@ -452,8 +487,6 @@ async function renderCodeBlocks(sequence: number) {
         defaultColor: false
       })
     }
-
-    if (sequence !== renderSequence) return
     const wrapper = document.createElement('div')
     wrapper.className = 'code-block'
     wrapper.innerHTML = highlighted
@@ -462,25 +495,19 @@ async function renderCodeBlocks(sequence: number) {
 }
 
 async function renderMermaid(sequence: number) {
-  const article = articleRef.value
-  if (!article) return
-
+  if (!articleRef.value) return
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
     theme: effectiveDark.value ? 'dark' : 'default',
     fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif'
   })
-
-  const blocks = article.querySelectorAll('code.language-mermaid')
   let index = 0
-
-  for (const code of Array.from(blocks)) {
-    const source = code.textContent || ''
+  for (const code of Array.from(articleRef.value.querySelectorAll('code.language-mermaid'))) {
     const container = document.createElement('div')
     container.className = 'mermaid-render'
     try {
-      const { svg } = await mermaid.render(`markglass-mermaid-${sequence}-${index++}`, source)
+      const { svg } = await mermaid.render(`markglass-mermaid-${sequence}-${index++}`, code.textContent || '')
       if (sequence !== renderSequence) return
       container.innerHTML = svg
     } catch (error) {
@@ -502,75 +529,48 @@ async function renderDocument(content: string) {
   }
 }
 
-let tocObserver: IntersectionObserver | null = null
-
 function extractToc() {
-  const article = articleRef.value
-  if (!article) return
-  
-  const headings = Array.from(article.querySelectorAll('h1, h2, h3, h4'))
-  toc.value = headings.map(h => {
-    if (!h.id) h.id = 'heading-' + Math.random().toString(36).substr(2, 9)
-    return {
-      id: h.id,
-      text: h.textContent || '',
-      level: parseInt(h.tagName[1], 10)
-    }
+  if (!articleRef.value) return
+  const headings = Array.from(articleRef.value.querySelectorAll('h1, h2, h3, h4'))
+  toc.value = headings.map((heading, index) => {
+    if (!heading.id) heading.id = `heading-${index}`
+    return { id: heading.id, text: heading.textContent || '', level: Number(heading.tagName[1]) }
   })
-  
-  if (tocObserver) tocObserver.disconnect()
-  
+  tocObserver?.disconnect()
   tocObserver = new IntersectionObserver((entries) => {
-    for (const entry of entries) {
-      if (entry.isIntersecting) {
-        activeTocId.value = entry.target.id
-        break
-      }
-    }
-  }, { rootMargin: '-10% 0px -80% 0px' })
-  
-  headings.forEach(h => tocObserver!.observe(h))
+    const active = entries.find((entry) => entry.isIntersecting)
+    if (active) activeTocId.value = active.target.id
+  }, { root: readerWrapRef.value, rootMargin: '-8% 0px -78% 0px' })
+  headings.forEach((heading) => tocObserver?.observe(heading))
 }
 
 function scrollToHeading(id: string) {
-  const el = document.getElementById(id)
-  const wrap = articleRef.value?.closest('.reader-wrap')
-  if (el && wrap) {
-    const top = el.offsetTop - 60
-    wrap.scrollTo({ top, behavior: 'smooth' })
+  const heading = document.getElementById(id)
+  if (heading && readerWrapRef.value) {
+    readerWrapRef.value.scrollTo({ top: heading.offsetTop - 70, behavior: 'smooth' })
+    tocVisible.value = false
   }
+}
+
+function handleScroll() {
+  window.clearTimeout(scrollTimeout)
+  scrollTimeout = window.setTimeout(saveScrollProgress, 250)
 }
 
 function saveScrollProgress() {
-  if (!currentPath.value) return
-  const wrap = articleRef.value?.closest('.reader-wrap')
-  if (wrap) {
-    localStorage.setItem(`markglass-scroll-${currentPath.value}`, String(wrap.scrollTop))
+  if (currentPath.value && readerWrapRef.value) {
+    localStorage.setItem(`markglass-scroll-${currentPath.value}`, String(readerWrapRef.value.scrollTop))
   }
-}
-
-let scrollTimeout: number | undefined
-function handleScroll() {
-  window.clearTimeout(scrollTimeout)
-  scrollTimeout = window.setTimeout(saveScrollProgress, 300)
 }
 
 function restoreScrollProgress() {
-  if (!currentPath.value) return
+  if (!readerWrapRef.value) return
   const saved = localStorage.getItem(`markglass-scroll-${currentPath.value}`)
-  const wrap = articleRef.value?.closest('.reader-wrap')
-  if (wrap && saved) {
-    wrap.scrollTo({ top: Number(saved), behavior: 'instant' })
-  } else if (wrap) {
-    wrap.scrollTo({ top: 0, behavior: 'instant' })
-  }
+  readerWrapRef.value.scrollTo({ top: saved ? Number(saved) : 0, behavior: 'instant' })
 }
 
 function addToRecent(path: string, name: string) {
-  const index = recentFiles.value.findIndex(f => f.path === path)
-  if (index !== -1) recentFiles.value.splice(index, 1)
-  recentFiles.value.unshift({ name, path })
-  if (recentFiles.value.length > 10) recentFiles.value.pop()
+  recentFiles.value = [{ name, path }, ...recentFiles.value.filter((file) => file.path !== path)].slice(0, 8)
   localStorage.setItem('markglass-recent-files', JSON.stringify(recentFiles.value))
 }
 
@@ -580,17 +580,21 @@ async function loadFile(path: string) {
     showToast('请选择 Markdown 文件')
     return
   }
-
   isLoading.value = true
   errorMessage.value = ''
-
   try {
-    if (!isTauri) throw new Error('网页预览不能读取本地文件，请在 MarkGlass 桌面应用中打开。')
+    if (!isTauri) {
+      currentPath.value = normalizedPath
+      currentSource.value = demoMarkdown
+      siblingFiles.value = demoNames
+      await renderDocument(demoMarkdown)
+      return
+    }
     const document = await invoke<MarkdownDocument>('open_markdown', { path: normalizedPath })
     currentPath.value = document.path
     currentSource.value = document.content
     siblingFiles.value = document.siblings
-    addToRecent(document.path, document.path.split(/[\\/]/).pop() || '')
+    addToRecent(document.path, fileName(document.path))
     await renderDocument(document.content)
     window.document.title = `${currentFileName.value} — MarkGlass`
   } catch (error) {
@@ -602,23 +606,24 @@ async function loadFile(path: string) {
 
 async function openFile() {
   if (!isTauri) {
-    showToast('请在 MarkGlass 桌面应用中打开文件')
+    showToast('桌面应用中可打开本地 Markdown')
     return
   }
-
   const selected = await open({
     multiple: false,
     title: '使用 MarkGlass 打开 Markdown',
     filters: [{ name: 'Markdown', extensions: ['md', 'mdx', 'markdown'] }]
   })
-
   if (typeof selected === 'string') await loadFile(selected)
 }
 
 async function openRelative(offset: number) {
-  if (currentSiblingIndex.value < 0) return
   const nextPath = siblingFiles.value[currentSiblingIndex.value + offset]
   if (nextPath) await loadFile(nextPath)
+}
+
+function setZoom(value: number) {
+  zoom.value = Math.min(160, Math.max(70, value))
 }
 
 function exportPdf() {
@@ -626,46 +631,33 @@ function exportPdf() {
 }
 
 function toggleTheme() {
-  theme.value = theme.value === 'auto' ? 'light' : theme.value === 'light' ? 'dark' : 'auto'
+  theme.value = effectiveDark.value ? 'light' : 'dark'
 }
 
 async function toggleFullscreen() {
-  if (!appWindow) return
-  const isFull = await appWindow.isFullscreen()
-  await appWindow.setFullscreen(!isFull)
-}
-
-async function toggleImmersive() {
   if (!appWindow) {
-    showToast('沉浸窗口仅在桌面应用中可用')
+    showToast('全屏切换仅在桌面应用中可用')
     return
   }
-  const nextValue = !isImmersive.value
-  await appWindow.setDecorations(!nextValue)
-  isImmersive.value = nextValue
-  localStorage.setItem('markglass-immersive', String(nextValue))
+  await appWindow.setFullscreen(!(await appWindow.isFullscreen()))
 }
 
 async function minimizeWindow() {
-  if (!appWindow) return
-  await appWindow.minimize()
-}
-
-async function toggleMaximize() {
-  if (!appWindow) return
-  await appWindow.toggleMaximize()
+  await appWindow?.minimize()
 }
 
 async function closeWindow() {
-  if (!appWindow) return
-  await appWindow.close()
+  if (isClosing.value) return
+  isClosing.value = true
+  window.setTimeout(async () => {
+    if (appWindow) await appWindow.close()
+    else isClosing.value = false
+  }, 240)
 }
 
 function openContextMenu(event: MouseEvent) {
-  const width = 244
-  const height = 330
-  contextMenu.x = Math.max(8, Math.min(event.clientX, window.innerWidth - width - 8))
-  contextMenu.y = Math.max(8, Math.min(event.clientY, window.innerHeight - height - 8))
+  contextMenu.x = Math.max(8, Math.min(event.clientX, window.innerWidth - 244))
+  contextMenu.y = Math.max(8, Math.min(event.clientY, window.innerHeight - 320))
   contextMenu.visible = true
   nextTick(() => contextMenuRef.value?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus())
 }
@@ -681,10 +673,7 @@ async function runMenuAction(action: () => void | Promise<void>) {
 
 async function copySelection() {
   const selectedText = window.getSelection()?.toString() || ''
-  if (!selectedText) {
-    showToast('请先选择要复制的内容')
-    return
-  }
+  if (!selectedText) return showToast('请先选择要复制的内容')
   await navigator.clipboard.writeText(selectedText)
   showToast('已复制')
 }
@@ -692,81 +681,64 @@ async function copySelection() {
 function showToast(message: string) {
   toastMessage.value = message
   window.clearTimeout(toastTimer)
-  toastTimer = window.setTimeout(() => {
-    toastMessage.value = ''
-  }, 1800)
+  toastTimer = window.setTimeout(() => (toastMessage.value = ''), 1800)
 }
 
 async function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && contextMenu.visible) {
-    event.preventDefault()
-    closeContextMenu()
-    return
-  }
-
+  if (event.key === 'Escape' && contextMenu.visible) return closeContextMenu()
   if (event.key === 'F11') {
     event.preventDefault()
-    await toggleFullscreen()
+    return toggleFullscreen()
+  }
+  if (event.key === 'Escape' && appWindow && await appWindow.isFullscreen()) {
+    await appWindow.setFullscreen(false)
     return
   }
-
-  if (event.key === 'Escape') {
-    if (!appWindow) return
-    const isFull = await appWindow.isFullscreen()
-    if (isFull) await appWindow.setFullscreen(false)
-    return
-  }
-
   if (event.ctrlKey && event.key.toLowerCase() === 'o') {
     event.preventDefault()
-    await openFile()
-    return
+    return openFile()
   }
-
+  if (event.ctrlKey && (event.key === '+' || event.key === '=')) {
+    event.preventDefault()
+    return setZoom(zoom.value + 10)
+  }
+  if (event.ctrlKey && event.key === '-') {
+    event.preventDefault()
+    return setZoom(zoom.value - 10)
+  }
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return
-
   if (event.key === 'ArrowRight' || event.key === 'PageDown') {
     event.preventDefault()
-    await openRelative(1)
+    return openRelative(1)
   }
-
   if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
     event.preventDefault()
-    await openRelative(-1)
+    return openRelative(-1)
   }
-}
-
-function handleSystemThemeChange(event: MediaQueryListEvent) {
-  systemIsDark.value = event.matches
 }
 
 watch(theme, async (value) => {
   localStorage.setItem('markglass-theme', value)
   if (currentSource.value) await renderDocument(currentSource.value)
 })
-
 watch(systemIsDark, async () => {
   if (theme.value === 'auto' && currentSource.value) await renderDocument(currentSource.value)
 })
+watch(sidebarVisible, (value) => localStorage.setItem('markglass-sidebar', String(value)))
+watch(serifMode, (value) => localStorage.setItem('markglass-serif', String(value)))
+watch(zoom, (value) => localStorage.setItem('markglass-zoom', String(value)))
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeydown)
-  systemTheme.addEventListener('change', handleSystemThemeChange)
+  systemTheme.addEventListener('change', (event) => (systemIsDark.value = event.matches))
 
   if (isTauri && appWindow) {
     unlistenOpenFile = await listen<string>('open-file-from-args', async (event) => {
       if (event.payload) await loadFile(event.payload)
     })
-
     unlistenDragDrop = await appWindow.onDragDropEvent(async (event) => {
-      if (event.payload.type === 'enter' || event.payload.type === 'over') {
-        isDragging.value = true
-        return
-      }
-      if (event.payload.type === 'leave') {
-        isDragging.value = false
-        return
-      }
+      if (event.payload.type === 'enter' || event.payload.type === 'over') return void (isDragging.value = true)
+      if (event.payload.type === 'leave') return void (isDragging.value = false)
       if (event.payload.type === 'drop') {
         isDragging.value = false
         const firstMarkdown = event.payload.paths.find(isMarkdown)
@@ -774,24 +746,19 @@ onMounted(async () => {
         else showToast('拖入的文件不是 Markdown')
       }
     })
-
-    if (isImmersive.value) await appWindow.setDecorations(false)
-
     const startupFile = await invoke<string | null>('startup_file').catch(() => null)
     if (startupFile) await loadFile(startupFile)
   } else if (new URLSearchParams(window.location.search).has('demo')) {
-    currentPath.value = 'MarkGlass 示例.md'
-    currentSource.value = demoMarkdown
-    siblingFiles.value = [currentPath.value]
-    await renderDocument(demoMarkdown)
+    await loadFile(demoNames[0])
   }
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', handleKeydown)
-  systemTheme.removeEventListener('change', handleSystemThemeChange)
   unlistenOpenFile?.()
   unlistenDragDrop?.()
+  tocObserver?.disconnect()
   window.clearTimeout(toastTimer)
+  window.clearTimeout(scrollTimeout)
 })
 </script>
