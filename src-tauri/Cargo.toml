@@ -1,6 +1,6 @@
 [package]
 name = "markglass"
-version = "1.0.0"
+version = "1.0.1"
 description = "MarkGlass - a focused Markdown viewer for Windows"
 authors = ["Lee Xuetao"]
 edition = "2021"

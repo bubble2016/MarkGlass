@@ -131,6 +131,12 @@ a:focus-visible {
   animation: railIn 320ms cubic-bezier(.2, .8, .2, 1);
 }
 
+.sidebar-collapsed .file-rail {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(-280px);
+}
+
 .rail-header,
 .rail-footer {
   flex: 0 0 auto;
@@ -450,27 +456,35 @@ a:focus-visible {
 }
 
 .markdown-body img {
-  max-width: 56%;
-  float: right;
-  margin: 0 0 28px 54px;
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.5em auto;
   border-radius: 14px;
   box-shadow: 0 10px 30px rgb(22 42 60 / 12%);
 }
 
-.markdown-body .demo-hero {
+.markdown-body.is-demo-document .demo-hero {
+  max-width: 56%;
+  float: right;
+  margin: 0 0 28px 54px;
   margin-top: -52px;
 }
 
 .markdown-body table {
-  width: 40%;
-  float: left;
-  margin: 1.2em 0;
-  margin-right: 7%;
+  width: 100%;
+  margin: 1.35em 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 9px;
   border-spacing: 0;
   font-size: .88em;
+}
+
+.markdown-body.is-demo-document table {
+  width: 40%;
+  float: left;
+  margin-right: 7%;
 }
 
 .markdown-body th,
@@ -540,10 +554,14 @@ a:focus-visible {
 }
 
 .mermaid-render {
-  width: 48%;
-  min-width: 48%;
+  width: 100%;
   padding: 16px;
   text-align: center;
+}
+
+.markdown-body.is-demo-document .mermaid-render {
+  width: 48%;
+  min-width: 48%;
 }
 
 .mermaid-render svg {
@@ -557,23 +575,31 @@ a:focus-visible {
   text-align: left;
 }
 
-.toc-popover {
+.toc-dock {
   position: fixed;
   z-index: 45;
+  right: 22px;
   bottom: 82px;
-  left: calc(50% - 125px);
-  width: 280px;
-  max-height: min(52vh, 460px);
-  overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 20%);
-  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   color: white;
-  background: var(--glass-strong);
-  box-shadow: 0 18px 50px rgb(0 0 0 / 30%);
-  backdrop-filter: blur(26px);
 }
 
-.toc-popover-header {
+.toc-panel {
+  width: min(300px, calc(100vw - 44px));
+  max-height: min(55vh, 480px);
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 15px;
+  background: rgb(18 29 41 / 52%);
+  box-shadow: 0 18px 50px rgb(0 0 0 / 30%);
+  backdrop-filter: blur(26px);
+  animation: tocPanelIn 180ms ease-out;
+}
+
+.toc-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -583,24 +609,18 @@ a:focus-visible {
   font-size: 14px;
 }
 
-.toc-popover-header button {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: white;
-  background: transparent;
+.toc-panel-header span {
+  color: rgb(255 255 255 / 56%);
+  font-size: 12px;
 }
 
-.toc-popover nav {
+.toc-panel nav {
   max-height: 390px;
   overflow-y: auto;
   padding: 8px;
 }
 
-.toc-popover nav button {
+.toc-panel nav button {
   width: 100%;
   display: block;
   overflow: hidden;
@@ -615,15 +635,41 @@ a:focus-visible {
   cursor: pointer;
 }
 
-.toc-popover nav button:hover,
-.toc-popover nav button.is-active {
+.toc-panel nav button:hover,
+.toc-panel nav button.is-active {
   color: white;
   background: rgb(255 255 255 / 10%);
 }
 
-.toc-popover .toc-level-2 { padding-left: 20px; }
-.toc-popover .toc-level-3 { padding-left: 32px; }
-.toc-popover .toc-level-4 { padding-left: 44px; }
+.toc-panel .toc-level-2 { padding-left: 20px; }
+.toc-panel .toc-level-3 { padding-left: 32px; }
+.toc-panel .toc-level-4 { padding-left: 44px; }
+
+.toc-dock-toggle {
+  min-width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  border: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 23px;
+  color: rgb(255 255 255 / 88%);
+  background: rgb(18 29 41 / 50%);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(22px) saturate(125%);
+  cursor: pointer;
+  transition: background 180ms ease, border-color 180ms ease, opacity 180ms ease;
+}
+
+.toc-dock-toggle:hover,
+.toc-dock-toggle:focus-visible,
+.toc-dock.is-expanded .toc-dock-toggle {
+  color: white;
+  border-color: rgb(255 255 255 / 25%);
+  background: rgb(18 29 41 / 78%);
+}
 
 .page-nav {
   position: fixed;
@@ -677,10 +723,19 @@ a:focus-visible {
   border: 1px solid rgb(255 255 255 / 12%);
   border-radius: 25px;
   color: white;
-  background: rgb(25 35 47 / 91%);
-  box-shadow: 0 10px 28px rgb(3 13 22 / 28%);
-  backdrop-filter: blur(22px) saturate(130%);
+  background: rgb(25 35 47 / 50%);
+  box-shadow: 0 8px 24px rgb(3 13 22 / 20%);
+  backdrop-filter: blur(24px) saturate(125%);
+  opacity: .74;
   transform: translateX(-50%);
+  transition: opacity 180ms ease, background 180ms ease, border-color 180ms ease;
+}
+
+.floating-toolbar:hover,
+.floating-toolbar:focus-within {
+  border-color: rgb(255 255 255 / 20%);
+  background: rgb(25 35 47 / 78%);
+  opacity: 1;
 }
 
 .sidebar-collapsed .floating-toolbar {
@@ -834,6 +889,33 @@ a:focus-visible {
   padding: 32px;
 }
 
+.boot-stage {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  color: rgb(255 255 255 / 68%);
+  background: rgb(12 25 38 / 72%);
+  backdrop-filter: blur(28px) saturate(120%);
+  font-size: 13px;
+  letter-spacing: .04em;
+}
+
+.boot-stage img {
+  width: min(360px, 70vw);
+  height: auto;
+  opacity: 0;
+  animation: bootLogoIn 320ms ease-out 30ms forwards;
+}
+
+.boot-stage span {
+  opacity: 0;
+  animation: bootLogoIn 260ms ease-out 110ms forwards;
+}
+
 .welcome-card {
   width: min(560px, 92vw);
   padding: 56px 48px 42px;
@@ -978,6 +1060,16 @@ kbd {
   to { opacity: 1; transform: translateX(0); }
 }
 
+@keyframes tocPanelIn {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bootLogoIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -1006,8 +1098,9 @@ kbd {
     left: 7px;
   }
 
-  .markdown-body img,
-  .markdown-body table {
+  .markdown-body.is-demo-document .demo-hero,
+  .markdown-body.is-demo-document table,
+  .markdown-body.is-demo-document .mermaid-render {
     width: 100%;
     max-width: 100%;
     float: none;
@@ -1052,13 +1145,16 @@ kbd {
     max-width: calc(100vw - 20px);
   }
 
+  .toc-dock {
+    right: 12px;
+    bottom: 72px;
+  }
+
   .floating-toolbar button {
     min-width: 34px;
   }
 
-  .toolbar-separator,
-  .floating-toolbar button:nth-of-type(3),
-  .floating-toolbar button:nth-of-type(5) {
+  .toolbar-separator {
     display: none;
   }
 }
@@ -1091,7 +1187,7 @@ kbd {
   .window-controls,
   .page-nav,
   .floating-toolbar,
-  .toc-popover,
+  .toc-dock,
   .context-menu,
   .toast {
     display: none !important;
