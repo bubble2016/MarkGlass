@@ -519,11 +519,52 @@ async function renderCodeBlocks(sequence: number) {
 
 async function renderMermaid(sequence: number) {
   if (!articleRef.value) return
+  const dark = effectiveDark.value
+  mermaid.mermaidAPI.globalReset()
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: effectiveDark.value ? 'dark' : 'default',
-    fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif'
+    theme: 'base',
+    fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif',
+    themeVariables: dark
+      ? {
+          background: '#1b222c',
+          primaryColor: '#293445',
+          primaryTextColor: '#f4f7fb',
+          primaryBorderColor: '#8faaff',
+          secondaryColor: '#243141',
+          secondaryTextColor: '#f4f7fb',
+          secondaryBorderColor: '#6f8fe8',
+          tertiaryColor: '#202a37',
+          tertiaryTextColor: '#f4f7fb',
+          tertiaryBorderColor: '#71819a',
+          nodeTextColor: '#f4f7fb',
+          lineColor: '#aab5c5',
+          textColor: '#f4f7fb',
+          edgeLabelBackground: '#1b222c',
+          clusterBkg: '#202936',
+          clusterBorder: '#536177',
+          titleColor: '#f4f7fb'
+        }
+      : {
+          background: '#f4f6fa',
+          primaryColor: '#eeeeff',
+          primaryTextColor: '#172030',
+          primaryBorderColor: '#8b6ff0',
+          secondaryColor: '#edf2ff',
+          secondaryTextColor: '#172030',
+          secondaryBorderColor: '#7694dc',
+          tertiaryColor: '#f3f5f9',
+          tertiaryTextColor: '#172030',
+          tertiaryBorderColor: '#aeb8c8',
+          nodeTextColor: '#172030',
+          lineColor: '#3f4650',
+          textColor: '#172030',
+          edgeLabelBackground: '#f4f6fa',
+          clusterBkg: '#f0f3f8',
+          clusterBorder: '#ccd3df',
+          titleColor: '#172030'
+        }
   })
   let index = 0
   for (const code of Array.from(articleRef.value.querySelectorAll('code.language-mermaid'))) {

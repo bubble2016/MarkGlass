@@ -39,6 +39,10 @@ a:focus-visible {
   --line: rgb(24 34 48 / 12%);
   --accent: #547ee8;
   --accent-soft: rgb(99 133 224 / 15%);
+  --diagram-surface: rgb(128 141 160 / 5%);
+  --diagram-border: rgb(24 34 48 / 12%);
+  --quote-border: #d5dbe4;
+  --table-header: rgb(126 140 158 / 6%);
   position: relative;
   width: 100%;
   height: 100%;
@@ -59,6 +63,10 @@ a:focus-visible {
   --line: rgb(235 241 250 / 12%);
   --accent: #8faaff;
   --accent-soft: rgb(111 145 244 / 16%);
+  --diagram-surface: rgb(14 20 28 / 34%);
+  --diagram-border: rgb(190 205 226 / 20%);
+  --quote-border: #66758a;
+  --table-header: rgb(155 176 207 / 10%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -73,6 +81,10 @@ a:focus-visible {
     --line: rgb(235 241 250 / 12%);
     --accent: #8faaff;
     --accent-soft: rgb(111 145 244 / 16%);
+    --diagram-surface: rgb(14 20 28 / 34%);
+    --diagram-border: rgb(190 205 226 / 20%);
+    --quote-border: #66758a;
+    --table-header: rgb(155 176 207 / 10%);
   }
 }
 
@@ -362,7 +374,23 @@ a:focus-visible {
 }
 
 .is-serif .markdown-body {
-  font-family: "Source Han Serif SC", "Noto Serif CJK SC", SimSun, serif;
+  font-family: Georgia, "FangSong", "仿宋", "STFangsong", "Noto Serif SC", serif;
+  font-weight: 400;
+  line-height: 1.84;
+  letter-spacing: .008em;
+}
+
+.is-serif .markdown-body h1 {
+  font-weight: 600;
+}
+
+.is-serif .markdown-body h2,
+.is-serif .markdown-body h3,
+.is-serif .markdown-body h4,
+.is-serif .markdown-body strong,
+.is-serif .markdown-body b,
+.is-serif .markdown-body th {
+  font-weight: 550;
 }
 
 .markdown-body > :first-child {
@@ -426,7 +454,7 @@ a:focus-visible {
 .markdown-body blockquote {
   margin: 1.1em 0;
   padding: .1em 0 .1em 13px;
-  border-left: 3px solid #d5dbe4;
+  border-left: 3px solid var(--quote-border);
   color: var(--muted);
 }
 
@@ -497,7 +525,7 @@ a:focus-visible {
 
 .markdown-body th {
   font-weight: 650;
-  background: rgb(126 140 158 / 6%);
+  background: var(--table-header);
 }
 
 .markdown-body tr:last-child td {
@@ -529,9 +557,9 @@ a:focus-visible {
 .mermaid-render {
   margin: 1.45em 0;
   overflow: auto;
-  border: 1px solid var(--line);
+  border: 1px solid var(--diagram-border);
   border-radius: 12px;
-  background: rgb(128 141 160 / 5%);
+  background: var(--diagram-surface);
 }
 
 .code-block .shiki {
@@ -553,6 +581,13 @@ a:focus-visible {
   color: var(--shiki-dark);
 }
 
+@media (prefers-color-scheme: dark) {
+  .theme-auto .code-block .shiki,
+  .theme-auto .code-block .shiki span {
+    color: var(--shiki-dark);
+  }
+}
+
 .mermaid-render {
   width: 100%;
   padding: 16px;
@@ -567,6 +602,68 @@ a:focus-visible {
 .mermaid-render svg {
   max-width: 100%;
   height: auto;
+}
+
+.theme-dark .mermaid-render .nodeLabel,
+.theme-dark .mermaid-render .edgeLabel,
+.theme-dark .mermaid-render text {
+  color: #f4f7fb !important;
+  fill: #f4f7fb !important;
+}
+
+.theme-dark .mermaid-render .node > rect,
+.theme-dark .mermaid-render .node > polygon,
+.theme-dark .mermaid-render .node > path {
+  fill: #293445 !important;
+  stroke: #8faaff !important;
+}
+
+.theme-dark .mermaid-render .flowchart-link,
+.theme-dark .mermaid-render .edgePath path {
+  stroke: #aab5c5 !important;
+}
+
+.theme-dark .mermaid-render marker path,
+.theme-dark .mermaid-render .marker {
+  fill: #aab5c5 !important;
+  stroke: #aab5c5 !important;
+}
+
+.theme-dark .mermaid-render .edgeLabel,
+.theme-dark .mermaid-render .labelBkg {
+  background-color: #1b222c !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  .theme-auto .mermaid-render .nodeLabel,
+  .theme-auto .mermaid-render .edgeLabel,
+  .theme-auto .mermaid-render text {
+    color: #f4f7fb !important;
+    fill: #f4f7fb !important;
+  }
+
+  .theme-auto .mermaid-render .node > rect,
+  .theme-auto .mermaid-render .node > polygon,
+  .theme-auto .mermaid-render .node > path {
+    fill: #293445 !important;
+    stroke: #8faaff !important;
+  }
+
+  .theme-auto .mermaid-render .flowchart-link,
+  .theme-auto .mermaid-render .edgePath path {
+    stroke: #aab5c5 !important;
+  }
+
+  .theme-auto .mermaid-render marker path,
+  .theme-auto .mermaid-render .marker {
+    fill: #aab5c5 !important;
+    stroke: #aab5c5 !important;
+  }
+
+  .theme-auto .mermaid-render .edgeLabel,
+  .theme-auto .mermaid-render .labelBkg {
+    background-color: #1b222c !important;
+  }
 }
 
 .mermaid-error {
