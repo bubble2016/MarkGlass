@@ -16,6 +16,11 @@
   >
     <div class="desktop-tint" aria-hidden="true"></div>
 
+    <section v-if="isBooting" class="boot-stage" aria-live="polite" aria-label="MarkGlass 正在启动">
+      <img :src="markGlassWordmarkDark" alt="MarkGlass" />
+      <span>像浏览照片一样阅读 Markdown</span>
+    </section>
+
     <section v-if="isLoading && !html" class="empty-stage status-state" aria-live="polite">
       <LoaderCircle class="spin" :size="34" />
       <p>正在打开 Markdown…</p>
@@ -60,7 +65,7 @@
     </section>
 
     <div v-else class="immersive-stage">
-      <aside v-if="siblingFiles.length > 1" class="file-rail" aria-label="同目录文件">
+      <aside v-if="sidebarVisible && siblingFiles.length > 1" class="file-rail" aria-label="同目录文件">
         <div class="rail-header">
           <strong>同目录文件</strong>
           <button type="button" aria-label="收起文件列表" title="收起文件列表" @click.stop="sidebarVisible = false">
@@ -124,25 +129,12 @@
         :style="{ '--reader-zoom': `${zoom / 100}` }"
         @scroll="handleScroll"
       >
-        <article ref="articleRef" class="markdown-body" v-html="html"></article>
-
-        <div v-if="tocVisible && toc.length" class="toc-popover" @click.stop>
-          <div class="toc-popover-header">
-            <strong>文档目录</strong>
-            <button type="button" aria-label="关闭目录" @click="tocVisible = false"><X :size="16" /></button>
-          </div>
-          <nav>
-            <button
-              v-for="item in toc"
-              :key="item.id"
-              type="button"
-              :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
-              @click="scrollToHeading(item.id)"
-            >
-              {{ item.text }}
-            </button>
-          </nav>
-        </div>
+        <article
+          ref="articleRef"
+          class="markdown-body"
+          :class="{ 'is-demo-document': isDemoDocument }"
+          v-html="html"
+        ></article>
 
         <div v-if="errorMessage" class="inline-error" role="alert">
           <AlertCircle :size="17" />
@@ -172,19 +164,48 @@
         <ChevronRight :size="30" />
       </button>
 
+      <aside
+        v-if="toc.length"
+        class="toc-dock"
+        :class="{ 'is-expanded': tocVisible }"
+        aria-label="文档目录"
+        @click.stop
+      >
+        <div v-if="tocVisible" class="toc-panel">
+          <div class="toc-panel-header">
+            <strong>文档目录</strong>
+            <span>{{ toc.length }} 项</span>
+          </div>
+          <nav>
+            <button
+              v-for="item in toc"
+              :key="item.id"
+              type="button"
+              :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
+              @click="scrollToHeading(item.id)"
+            >
+              {{ item.text }}
+            </button>
+          </nav>
+        </div>
+        <button
+          class="toc-dock-toggle"
+          type="button"
+          :aria-expanded="tocVisible"
+          :aria-label="tocVisible ? '收起文档目录' : '展开文档目录'"
+          :title="tocVisible ? '收起文档目录' : '展开文档目录'"
+          @click="tocVisible = !tocVisible"
+        >
+          <ListTree :size="20" />
+          <span v-if="tocVisible">收起目录</span>
+        </button>
+      </aside>
+
       <nav class="floating-toolbar" aria-label="阅读工具栏">
         <button
           type="button"
-          :class="{ 'is-active': tocVisible }"
-          aria-label="文档目录"
-          title="文档目录"
-          @click.stop="tocVisible = !tocVisible"
-        >
-          <ListTree :size="20" />
-        </button>
-        <button
-          type="button"
           :class="{ 'is-active': sidebarVisible }"
+          :aria-expanded="sidebarVisible"
           aria-label="同目录文件"
           title="同目录文件"
           @click.stop="sidebarVisible = !sidebarVisible"
@@ -328,13 +349,14 @@ const currentPath = ref('')
 const siblingFiles = ref<string[]>([])
 const isDragging = ref(false)
 const isLoading = ref(false)
+const isBooting = ref(true)
 const isClosing = ref(false)
 const errorMessage = ref('')
 const toastMessage = ref('')
 const articleRef = ref<HTMLElement | null>(null)
 const readerWrapRef = ref<HTMLElement | null>(null)
 const contextMenuRef = ref<HTMLElement | null>(null)
-const sidebarVisible = ref(localStorage.getItem('markglass-sidebar') !== 'false')
+const sidebarVisible = ref(false)
 const tocVisible = ref(false)
 const serifMode = ref(localStorage.getItem('markglass-serif') === 'true')
 const zoom = ref(Number(localStorage.getItem('markglass-zoom')) || 100)
@@ -419,6 +441,7 @@ const canOpenNext = computed(() =>
   currentSiblingIndex.value >= 0 && currentSiblingIndex.value < siblingFiles.value.length - 1
 )
 const effectiveDark = computed(() => theme.value === 'dark' || (theme.value === 'auto' && systemIsDark.value))
+const isDemoDocument = computed(() => !isTauri && demoNames.includes(currentPath.value))
 
 const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
   .use(anchor)
@@ -496,11 +519,52 @@ async function renderCodeBlocks(sequence: number) {
 
 async function renderMermaid(sequence: number) {
   if (!articleRef.value) return
+  const dark = effectiveDark.value
+  mermaid.mermaidAPI.globalReset()
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
-    theme: effectiveDark.value ? 'dark' : 'default',
-    fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif'
+    theme: 'base',
+    fontFamily: '"Segoe UI", "Microsoft YaHei", sans-serif',
+    themeVariables: dark
+      ? {
+          background: '#1b222c',
+          primaryColor: '#293445',
+          primaryTextColor: '#f4f7fb',
+          primaryBorderColor: '#8faaff',
+          secondaryColor: '#243141',
+          secondaryTextColor: '#f4f7fb',
+          secondaryBorderColor: '#6f8fe8',
+          tertiaryColor: '#202a37',
+          tertiaryTextColor: '#f4f7fb',
+          tertiaryBorderColor: '#71819a',
+          nodeTextColor: '#f4f7fb',
+          lineColor: '#aab5c5',
+          textColor: '#f4f7fb',
+          edgeLabelBackground: '#1b222c',
+          clusterBkg: '#202936',
+          clusterBorder: '#536177',
+          titleColor: '#f4f7fb'
+        }
+      : {
+          background: '#f4f6fa',
+          primaryColor: '#eeeeff',
+          primaryTextColor: '#172030',
+          primaryBorderColor: '#8b6ff0',
+          secondaryColor: '#edf2ff',
+          secondaryTextColor: '#172030',
+          secondaryBorderColor: '#7694dc',
+          tertiaryColor: '#f3f5f9',
+          tertiaryTextColor: '#172030',
+          tertiaryBorderColor: '#aeb8c8',
+          nodeTextColor: '#172030',
+          lineColor: '#3f4650',
+          textColor: '#172030',
+          edgeLabelBackground: '#f4f6fa',
+          clusterBkg: '#f0f3f8',
+          clusterBorder: '#ccd3df',
+          titleColor: '#172030'
+        }
   })
   let index = 0
   for (const code of Array.from(articleRef.value.querySelectorAll('code.language-mermaid'))) {
@@ -522,6 +586,7 @@ async function renderDocument(content: string) {
   const sequence = ++renderSequence
   html.value = md.render(content)
   await nextTick()
+  extractToc()
   await Promise.all([renderCodeBlocks(sequence), renderMermaid(sequence)])
   if (sequence === renderSequence) {
     extractToc()
@@ -548,7 +613,6 @@ function scrollToHeading(id: string) {
   const heading = document.getElementById(id)
   if (heading && readerWrapRef.value) {
     readerWrapRef.value.scrollTo({ top: heading.offsetTop - 70, behavior: 'smooth' })
-    tocVisible.value = false
   }
 }
 
@@ -685,14 +749,13 @@ function showToast(message: string) {
 }
 
 async function handleKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape' && contextMenu.visible) return closeContextMenu()
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    return closeWindow()
+  }
   if (event.key === 'F11') {
     event.preventDefault()
     return toggleFullscreen()
-  }
-  if (event.key === 'Escape' && appWindow && await appWindow.isFullscreen()) {
-    await appWindow.setFullscreen(false)
-    return
   }
   if (event.ctrlKey && event.key.toLowerCase() === 'o') {
     event.preventDefault()
@@ -724,32 +787,38 @@ watch(theme, async (value) => {
 watch(systemIsDark, async () => {
   if (theme.value === 'auto' && currentSource.value) await renderDocument(currentSource.value)
 })
-watch(sidebarVisible, (value) => localStorage.setItem('markglass-sidebar', String(value)))
 watch(serifMode, (value) => localStorage.setItem('markglass-serif', String(value)))
 watch(zoom, (value) => localStorage.setItem('markglass-zoom', String(value)))
 
 onMounted(async () => {
+  const bootStartedAt = performance.now()
   window.addEventListener('keydown', handleKeydown)
   systemTheme.addEventListener('change', (event) => (systemIsDark.value = event.matches))
 
-  if (isTauri && appWindow) {
-    unlistenOpenFile = await listen<string>('open-file-from-args', async (event) => {
-      if (event.payload) await loadFile(event.payload)
-    })
-    unlistenDragDrop = await appWindow.onDragDropEvent(async (event) => {
-      if (event.payload.type === 'enter' || event.payload.type === 'over') return void (isDragging.value = true)
-      if (event.payload.type === 'leave') return void (isDragging.value = false)
-      if (event.payload.type === 'drop') {
-        isDragging.value = false
-        const firstMarkdown = event.payload.paths.find(isMarkdown)
-        if (firstMarkdown) await loadFile(firstMarkdown)
-        else showToast('拖入的文件不是 Markdown')
-      }
-    })
-    const startupFile = await invoke<string | null>('startup_file').catch(() => null)
-    if (startupFile) await loadFile(startupFile)
-  } else if (new URLSearchParams(window.location.search).has('demo')) {
-    await loadFile(demoNames[0])
+  try {
+    if (isTauri && appWindow) {
+      unlistenOpenFile = await listen<string>('open-file-from-args', async (event) => {
+        if (event.payload) await loadFile(event.payload)
+      })
+      unlistenDragDrop = await appWindow.onDragDropEvent(async (event) => {
+        if (event.payload.type === 'enter' || event.payload.type === 'over') return void (isDragging.value = true)
+        if (event.payload.type === 'leave') return void (isDragging.value = false)
+        if (event.payload.type === 'drop') {
+          isDragging.value = false
+          const firstMarkdown = event.payload.paths.find(isMarkdown)
+          if (firstMarkdown) await loadFile(firstMarkdown)
+          else showToast('拖入的文件不是 Markdown')
+        }
+      })
+      const startupFile = await invoke<string | null>('startup_file').catch(() => null)
+      if (startupFile) await loadFile(startupFile)
+    } else if (new URLSearchParams(window.location.search).has('demo')) {
+      await loadFile(demoNames[0])
+    }
+  } finally {
+    const remaining = Math.max(0, 360 - (performance.now() - bootStartedAt))
+    if (remaining) await new Promise((resolve) => window.setTimeout(resolve, remaining))
+    isBooting.value = false
   }
 })
 
