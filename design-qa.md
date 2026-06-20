@@ -1,46 +1,34 @@
-# MarkGlass 设计 QA
+# Design QA
 
-- source visual truth path: `C:\Users\win8e\AppData\Local\Temp\codex-clipboard-f87d7322-da39-4ec0-86d2-ec274acbd30b.png`
-- implementation screenshot path: `D:\md-reader-windows\design-implementation.png`
-- combined comparison path: `D:\md-reader-windows\design-comparison.png`
-- viewport: `1536 × 964`
-- state: 亮色主题、第一篇文档、文件侧栏展开、100% 缩放、目录收起
-
-## Full-view comparison evidence
-
-参考图与实现图已按相同可用窗口尺寸并排比较。实现保持了相同的主要构图：左侧约 250px 玻璃文件栏、右侧大面积白色圆角阅读卡、顶部中央状态胶囊、卡片两侧翻页按钮，以及底部中央深色悬浮工具条。背景壁纸、玻璃透明度、卡片阴影和控件层级均达到同一视觉方向。
-
-## Focused region comparison evidence
-
-- 左侧文件栏：标题、缩略图比例、活动项描边、底部计数和纵向密度与参考图一致。
-- 顶部与底部浮层：文件进度胶囊和工具条均为独立毛玻璃浮层，位置已按最后一轮对比校准。
-- 阅读内容：标题层级、Markdown 标记、右浮山湖图片、任务列表、表格和 Mermaid 双栏结构与参考图对应。
-- 翻页按钮：圆形深色按钮跨在阅读卡边缘，尺寸、阴影和纵向位置一致。
-
-## Required fidelity surfaces
-
-- Fonts and typography: 使用 Segoe UI Variable/Text 与微软雅黑回退；标题字重、正文行高、小号控件文字和截断均匹配 Windows 11 阅读界面。
-- Spacing and layout rhythm: 外边距、卡片圆角、侧栏宽度、内容内边距、悬浮层间距和阴影层级已核对。
-- Colors and visual tokens: 白色阅读面、深蓝灰玻璃、蓝色强调和绿色任务状态与参考图一致；暗色主题也有对应令牌。
-- Image quality and asset fidelity: 使用从用户参考图提取的山湖配图和真实文档缩略图，没有可见占位资源。
-- Copy and content: 文件名、进度、目录文件、核心特性、表格和 Mermaid 示例均与目标语义对应。
+- Source visual truth: `C:\Users\win8e\AppData\Local\Temp\codex-clipboard-d9da327c-e121-49be-8cf8-318d17bda8a5.png`
+- Implementation screenshot: `C:\Users\win8e\AppData\Local\Temp\markglass-focus-width-final.png`
+- Full-view comparison: `C:\Users\win8e\AppData\Local\Temp\markglass-width-comparison-final.png`
+- Focused toolbar comparison: `C:\Users\win8e\AppData\Local\Temp\markglass-toolbar-comparison.png`
+- Viewport: source normalized by viewport ratio; implementation captured at 2000 × 1200
+- State: light theme, sidebar collapsed, narrow-width mode active, demo Markdown document
 
 ## Findings
 
-无可执行的 P0、P1 或 P2 差异。
+No actionable P0, P1, or P2 issues remain.
 
-## Patches made
+- Fonts and typography: Existing project typography and document hierarchy are unchanged. The feature does not introduce new text styling beyond native tooltips and toast copy.
+- Spacing and layout rhythm: The narrow reader is 1420px at a 2000px viewport (71%), matching the reference red-box proportion of approximately 70.5%. It remains centered, with navigation and TOC controls attached to the reader frame.
+- Colors and visual tokens: The implementation reuses the existing reader, glass, border, shadow, and toolbar tokens. Side areas increase from 22px to 30px backdrop blur with slightly stronger tint while narrow mode is active.
+- Image quality and asset fidelity: No new raster assets are required. The existing desktop/background image remains sharp enough beneath the intentionally stronger blur.
+- Copy and content: Button labels clearly expose both actions: “切换到窄幅阅读” and “切换到宽幅阅读”. The source and implementation documents differ intentionally; the requested target is the width and background treatment rather than document content.
+- Interaction and accessibility: The button is keyboard focusable, exposes `aria-pressed`, changes its accessible label with state, and persists the selected width across reloads.
+- Responsive behavior: At 720px the reader returns to full available width, the toolbar remains within the viewport, and no horizontal page overflow occurs.
 
-- 将窗口改为透明、无边框、启动最大化且保留系统任务栏。
-- 接入 Windows Acrylic 原生背景效果。
-- 重建侧栏、阅读卡、进度胶囊、翻页按钮和底部工具条。
-- 增加目录、缩放、主题、字体、打开文件、全屏和侧栏切换交互。
-- 增加从左下文件位置展开及反向缩回的开关动画。
-- 根据并排比较调整示例内容双栏、标题标记、图片位置和浮层中心点。
+## Patches Made
 
-## Follow-up polish
+- Added persistent wide/narrow reader state.
+- Added a matching toolbar button with inward/outward width icons.
+- Added a centered reader frame so page navigation and TOC follow width changes.
+- Added a 300ms width transition and stronger narrow-mode desktop blur.
+- Tuned the maximum narrow width from 1380px to 1420px after visual comparison.
 
-- 浏览器预览用固定壁纸模拟桌面；Tauri 桌面版会显示用户实际桌面并由 Acrylic 处理。
-- 示例预览使用 8 个文件，真实应用会按当前目录实际文件数量显示。
+## Follow-up Polish
+
+- None required for this request.
 
 final result: passed

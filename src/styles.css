@@ -94,6 +94,12 @@ a:focus-visible {
   inset: 0;
   background: rgb(8 29 45 / 22%);
   backdrop-filter: blur(22px) saturate(122%);
+  transition: background 260ms ease, backdrop-filter 260ms ease;
+}
+
+.is-focus-width .desktop-tint {
+  background: rgb(8 25 39 / 29%);
+  backdrop-filter: blur(30px) saturate(132%);
 }
 
 .web-preview::before {
@@ -122,6 +128,18 @@ a:focus-visible {
 
 .sidebar-collapsed .immersive-stage {
   padding-left: 20px;
+}
+
+.reader-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  transition: width 300ms cubic-bezier(.2, .8, .2, 1);
+}
+
+.is-focus-width .reader-frame {
+  width: min(72vw, 1420px, 100%);
 }
 
 .file-rail {
@@ -362,6 +380,13 @@ a:focus-visible {
   scrollbar-color: rgb(87 101 121 / 25%) transparent;
   animation: readerOpen 440ms cubic-bezier(.16, 1, .3, 1);
   transform-origin: 9% 11%;
+}
+
+.is-focus-width .reader-card {
+  box-shadow:
+    0 30px 90px rgb(4 17 29 / 32%),
+    0 0 0 1px rgb(255 255 255 / 7%),
+    inset 0 1px 0 rgb(255 255 255 / 68%);
 }
 
 .markdown-body {
@@ -673,10 +698,10 @@ a:focus-visible {
 }
 
 .toc-dock {
-  position: fixed;
+  position: absolute;
   z-index: 45;
-  right: 22px;
-  bottom: 82px;
+  right: 2px;
+  bottom: 66px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -769,7 +794,7 @@ a:focus-visible {
 }
 
 .page-nav {
-  position: fixed;
+  position: absolute;
   z-index: 31;
   top: 50%;
   width: 50px;
@@ -797,15 +822,11 @@ a:focus-visible {
 }
 
 .page-nav-prev {
-  left: 286px;
+  left: -14px;
 }
 
 .page-nav-next {
-  right: 7px;
-}
-
-.sidebar-collapsed .page-nav-prev {
-  left: 7px;
+  right: -14px;
 }
 
 .floating-toolbar {
@@ -1013,6 +1034,14 @@ a:focus-visible {
   animation: bootLogoIn 260ms ease-out 110ms forwards;
 }
 
+.boot-fade-leave-active {
+  transition: opacity 180ms ease;
+}
+
+.boot-fade-leave-to {
+  opacity: 0;
+}
+
 .welcome-card {
   width: min(560px, 92vw);
   padding: 56px 48px 42px;
@@ -1192,7 +1221,7 @@ kbd {
   }
 
   .page-nav-prev {
-    left: 7px;
+    left: -14px;
   }
 
   .markdown-body.is-demo-document .demo-hero,
@@ -1219,6 +1248,10 @@ kbd {
     border-radius: 14px;
   }
 
+  .is-focus-width .reader-frame {
+    width: 100%;
+  }
+
   .document-status {
     top: 22px;
     max-width: 62vw;
@@ -1243,8 +1276,8 @@ kbd {
   }
 
   .toc-dock {
-    right: 12px;
-    bottom: 72px;
+    right: 2px;
+    bottom: 56px;
   }
 
   .floating-toolbar button {

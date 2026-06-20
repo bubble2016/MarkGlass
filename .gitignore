@@ -19,6 +19,7 @@ node_modules/
 
 # Tauri build outputs
 /src-tauri/target/
+/src-tauri/gen/
 
 # IDEs and editors
 .idea/

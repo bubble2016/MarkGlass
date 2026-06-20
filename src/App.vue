@@ -8,6 +8,7 @@
         'is-closing': isClosing,
         'sidebar-collapsed': !sidebarVisible,
         'is-serif': serifMode,
+        'is-focus-width': focusWidth,
         'web-preview': !isTauri
       }
     ]"
@@ -16,10 +17,12 @@
   >
     <div class="desktop-tint" aria-hidden="true"></div>
 
-    <section v-if="isBooting" class="boot-stage" aria-live="polite" aria-label="MarkGlass 正在启动">
-      <img :src="markGlassWordmarkDark" alt="MarkGlass" />
-      <span>像浏览照片一样阅读 Markdown</span>
-    </section>
+    <Transition name="boot-fade">
+      <section v-if="isBooting" class="boot-stage" aria-live="polite" aria-label="MarkGlass 正在启动">
+        <img :src="markGlassWordmarkDark" alt="MarkGlass" />
+        <span>像浏览照片一样阅读 Markdown</span>
+      </section>
+    </Transition>
 
     <section v-if="isLoading && !html" class="empty-stage status-state" aria-live="polite">
       <LoaderCircle class="spin" :size="34" />
@@ -122,84 +125,86 @@
         </button>
       </div>
 
-      <section
-        ref="readerWrapRef"
-        class="reader-card"
-        :aria-busy="isLoading"
-        :style="{ '--reader-zoom': `${zoom / 100}` }"
-        @scroll="handleScroll"
-      >
-        <article
-          ref="articleRef"
-          class="markdown-body"
-          :class="{ 'is-demo-document': isDemoDocument }"
-          v-html="html"
-        ></article>
-
-        <div v-if="errorMessage" class="inline-error" role="alert">
-          <AlertCircle :size="17" />
-          <span>{{ errorMessage }}</span>
-          <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''"><X :size="15" /></button>
-        </div>
-      </section>
-
-      <button
-        class="page-nav page-nav-prev"
-        type="button"
-        aria-label="上一篇"
-        title="上一篇（←）"
-        :disabled="!canOpenPrevious"
-        @click.stop="openRelative(-1)"
-      >
-        <ChevronLeft :size="30" />
-      </button>
-      <button
-        class="page-nav page-nav-next"
-        type="button"
-        aria-label="下一篇"
-        title="下一篇（→）"
-        :disabled="!canOpenNext"
-        @click.stop="openRelative(1)"
-      >
-        <ChevronRight :size="30" />
-      </button>
-
-      <aside
-        v-if="toc.length"
-        class="toc-dock"
-        :class="{ 'is-expanded': tocVisible }"
-        aria-label="文档目录"
-        @click.stop
-      >
-        <div v-if="tocVisible" class="toc-panel">
-          <div class="toc-panel-header">
-            <strong>文档目录</strong>
-            <span>{{ toc.length }} 项</span>
-          </div>
-          <nav>
-            <button
-              v-for="item in toc"
-              :key="item.id"
-              type="button"
-              :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
-              @click="scrollToHeading(item.id)"
-            >
-              {{ item.text }}
-            </button>
-          </nav>
-        </div>
-        <button
-          class="toc-dock-toggle"
-          type="button"
-          :aria-expanded="tocVisible"
-          :aria-label="tocVisible ? '收起文档目录' : '展开文档目录'"
-          :title="tocVisible ? '收起文档目录' : '展开文档目录'"
-          @click="tocVisible = !tocVisible"
+      <div class="reader-frame">
+        <section
+          ref="readerWrapRef"
+          class="reader-card"
+          :aria-busy="isLoading"
+          :style="{ '--reader-zoom': `${zoom / 100}` }"
+          @scroll="handleScroll"
         >
-          <ListTree :size="20" />
-          <span v-if="tocVisible">收起目录</span>
+          <article
+            ref="articleRef"
+            class="markdown-body"
+            :class="{ 'is-demo-document': isDemoDocument }"
+            v-html="html"
+          ></article>
+
+          <div v-if="errorMessage" class="inline-error" role="alert">
+            <AlertCircle :size="17" />
+            <span>{{ errorMessage }}</span>
+            <button type="button" aria-label="关闭错误提示" @click="errorMessage = ''"><X :size="15" /></button>
+          </div>
+        </section>
+
+        <button
+          class="page-nav page-nav-prev"
+          type="button"
+          aria-label="上一篇"
+          title="上一篇（←）"
+          :disabled="!canOpenPrevious"
+          @click.stop="openRelative(-1)"
+        >
+          <ChevronLeft :size="30" />
         </button>
-      </aside>
+        <button
+          class="page-nav page-nav-next"
+          type="button"
+          aria-label="下一篇"
+          title="下一篇（→）"
+          :disabled="!canOpenNext"
+          @click.stop="openRelative(1)"
+        >
+          <ChevronRight :size="30" />
+        </button>
+
+        <aside
+          v-if="toc.length"
+          class="toc-dock"
+          :class="{ 'is-expanded': tocVisible }"
+          aria-label="文档目录"
+          @click.stop
+        >
+          <div v-if="tocVisible" class="toc-panel">
+            <div class="toc-panel-header">
+              <strong>文档目录</strong>
+              <span>{{ toc.length }} 项</span>
+            </div>
+            <nav>
+              <button
+                v-for="item in toc"
+                :key="item.id"
+                type="button"
+                :class="[`toc-level-${item.level}`, { 'is-active': activeTocId === item.id }]"
+                @click="scrollToHeading(item.id)"
+              >
+                {{ item.text }}
+              </button>
+            </nav>
+          </div>
+          <button
+            class="toc-dock-toggle"
+            type="button"
+            :aria-expanded="tocVisible"
+            :aria-label="tocVisible ? '收起文档目录' : '展开文档目录'"
+            :title="tocVisible ? '收起文档目录' : '展开文档目录'"
+            @click="tocVisible = !tocVisible"
+          >
+            <ListTree :size="20" />
+            <span v-if="tocVisible">收起目录</span>
+          </button>
+        </aside>
+      </div>
 
       <nav class="floating-toolbar" aria-label="阅读工具栏">
         <button
@@ -236,6 +241,17 @@
         </button>
         <button type="button" aria-label="打开文件" title="打开文件（Ctrl+O）" @click.stop="openFile">
           <FolderOpen :size="19" />
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': focusWidth }"
+          :aria-pressed="focusWidth"
+          :aria-label="focusWidth ? '切换到宽幅阅读' : '切换到窄幅阅读'"
+          :title="focusWidth ? '切换到宽幅阅读' : '切换到窄幅阅读'"
+          @click.stop="toggleReaderWidth"
+        >
+          <Expand v-if="focusWidth" :size="19" />
+          <Shrink v-else :size="19" />
         </button>
         <button type="button" aria-label="切换全屏" title="全屏（F11）" @click.stop="toggleFullscreen">
           <Maximize2 :size="19" />
@@ -304,6 +320,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Expand,
   FileDown,
   FileText,
   FolderOpen,
@@ -316,6 +333,7 @@ import {
   Palette,
   PanelLeftOpen,
   Printer,
+  Shrink,
   Sun,
   Type,
   X,
@@ -359,6 +377,7 @@ const contextMenuRef = ref<HTMLElement | null>(null)
 const sidebarVisible = ref(false)
 const tocVisible = ref(false)
 const serifMode = ref(localStorage.getItem('markglass-serif') === 'true')
+const focusWidth = ref(localStorage.getItem('markglass-reader-width') === 'focus')
 const zoom = ref(Number(localStorage.getItem('markglass-zoom')) || 100)
 const theme = ref<Theme>((localStorage.getItem('markglass-theme') as Theme) || 'auto')
 const systemTheme = window.matchMedia('(prefers-color-scheme: dark)')
@@ -690,6 +709,11 @@ function setZoom(value: number) {
   zoom.value = Math.min(160, Math.max(70, value))
 }
 
+function toggleReaderWidth() {
+  focusWidth.value = !focusWidth.value
+  showToast(focusWidth.value ? '已切换到窄幅阅读' : '已切换到宽幅阅读')
+}
+
 function exportPdf() {
   window.print()
 }
@@ -748,6 +772,15 @@ function showToast(message: string) {
   toastTimer = window.setTimeout(() => (toastMessage.value = ''), 1800)
 }
 
+async function revealStartupWindow() {
+  if (!appWindow) return
+  await nextTick()
+  await new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
+  })
+  await appWindow.show()
+}
+
 async function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') {
     event.preventDefault()
@@ -788,6 +821,7 @@ watch(systemIsDark, async () => {
   if (theme.value === 'auto' && currentSource.value) await renderDocument(currentSource.value)
 })
 watch(serifMode, (value) => localStorage.setItem('markglass-serif', String(value)))
+watch(focusWidth, (value) => localStorage.setItem('markglass-reader-width', value ? 'focus' : 'wide'))
 watch(zoom, (value) => localStorage.setItem('markglass-zoom', String(value)))
 
 onMounted(async () => {
@@ -810,6 +844,7 @@ onMounted(async () => {
           else showToast('拖入的文件不是 Markdown')
         }
       })
+      await revealStartupWindow()
       const startupFile = await invoke<string | null>('startup_file').catch(() => null)
       if (startupFile) await loadFile(startupFile)
     } else if (new URLSearchParams(window.location.search).has('demo')) {
